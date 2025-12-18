@@ -17,6 +17,7 @@ import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from PIL import Image
+import gdown
 
 app = Flask(__name__)
 CORS(app)
@@ -27,6 +28,18 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 RESULTS_FOLDER = './results'
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 PATIENTS_FILE = './patients.json'
+
+# Google Drive model config
+MODEL_FILE_NAME = "final_complete_hope.pt"
+MODEL_DIR = "./model"
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+
+# Your Google Drive file ID
+GDRIVE_FILE_ID = "1ej4L-8ei1gheIznEfi4H3bsgiETRl1EH"
+GDRIVE_URL = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+
+os.makedirs(MODEL_DIR, exist_ok=True)
+
 
 # Ensure patients storage exists
 if not os.path.exists(PATIENTS_FILE):
@@ -49,6 +62,23 @@ class LiverDiseaseClassifier(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
+def download_model_from_gdrive():
+    """Download model from Google Drive if not present"""
+    if os.path.exists(MODEL_PATH):
+        print("✅ Model already exists locally.")
+        return True
+
+    try:
+        print("⬇️ Downloading model from Google Drive...")
+        gdown.download(GDRIVE_URL, MODEL_PATH, quiet=False)
+        print("✅ Model downloaded successfully!")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to download model: {e}")
+        return False
+
+
+
 # Device: CPU or GPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"🔧 Using device: {device}")
@@ -59,7 +89,7 @@ def load_liver_model(model_path):
     
     try:
         # Use weights_only=False since we trust our model
-        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+        checkpoint = torch.load(model_path, map_location='cpu')
         print("✅ Checkpoint loaded successfully!")
         
         print(f"📋 Checkpoint type: {type(checkpoint)}")
@@ -93,7 +123,7 @@ def load_liver_model(model_path):
         # Test the model
         print("🧪 Testing model...")
         with torch.no_grad():
-            test_input = torch.randn(1, 3, 640, 640).to(device)
+            test_input = torch.randn(1, 3, 224, 224).to(device)
             output = model(test_input)
             print(f"📊 Output shape: {output.shape}")
             print(f"📊 Sample output: {output[0]}")
@@ -282,21 +312,27 @@ def generate_probability_assessment(predictions):
     assessment += "Clinical correlation and further evaluation are recommended."
     return assessment
 
-# Initialize model immediately
-model_path = 'final_complete_hope.pt'
-if os.path.exists(model_path):
-    model, CLASS_NAMES, IMG_SIZE, MODEL_TYPE = load_liver_model(model_path)
+
+
+print("🚀 Initializing Liver Disease Detection System...")
+
+MODEL_LOADED = False
+MODEL_TYPE = "not_loaded"
+
+if download_model_from_gdrive():
+    model, CLASS_NAMES, IMG_SIZE, MODEL_TYPE = load_liver_model(MODEL_PATH)
     MODEL_LOADED = model is not None
 else:
     model = None
     CLASS_NAMES = ['ballooning', 'fibrosis', 'inflammation', 'steatosis']
     IMG_SIZE = 640
-    MODEL_TYPE = "not_found"
+    MODEL_TYPE = "download_failed"
     MODEL_LOADED = False
 
 print(f"📊 Classes: {CLASS_NAMES}")
 print(f"🖼️ Input size: {IMG_SIZE}")
-print(f"🔧 Model status: {'LOADED' if MODEL_LOADED else 'FAILED'}")
+print(f"🔧 Model status: {'LOADED' if MODEL_LOADED else 'DEMO MODE'}")
+
 
 @app.route('/')
 def home():
