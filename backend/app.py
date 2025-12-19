@@ -20,7 +20,11 @@ from PIL import Image
 import gdown
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={r"/api/*": {"origins": "*"}},
+    supports_credentials=True
+)
 
 # Configuration
 UPLOAD_FOLDER = './uploads'
@@ -504,10 +508,26 @@ def get_result_status(result_id):
     return jsonify({'data': status, 'message': 'OK', 'success': True})
 
 
-@app.route('/api/detect', methods=['POST'])
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = app.make_response("")
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return response
+
+
+
+@app.route("/api/detect", methods=["POST", "OPTIONS"])
 def api_detect():
-    # Keep compatibility with frontend; forward to /predict handler
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return "", 204
+
+    # Forward actual POST request to existing logic
     return predict()
+
 
 
 @app.route('/api/results/<result_id>/report', methods=['GET'])
@@ -705,3 +725,4 @@ if __name__ == '__main__':
     print("🌐 Starting Liver Disease Detection API Server...")
     print(f"🔗 Server: http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
+
