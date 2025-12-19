@@ -2,10 +2,13 @@
 
 flask==2.3.3
 flask-cors==4.0.0
-torch==2.0.1+cpu
-torchvision==0.15.2+cpu
+
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
+
 numpy<2
 opencv-python-headless==4.9.0.80
 reportlab==4.2.0
+
 setuptools>=70.0.0
 wheel>=0.41.0
